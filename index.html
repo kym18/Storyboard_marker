@@ -1063,163 +1063,176 @@ function clearAll() {
   addFrame();
 }
 
-// ─── PDF EXPORT ───────────────────────────
+// ─── PDF EXPORT (html2canvas 캡처 방식 - 한글 완벽 지원) ───────────────
 async function exportPDF() {
   const loading = document.getElementById('exportLoading');
   loading.classList.add('show');
-
   await new Promise(r => setTimeout(r, 100));
 
   try {
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
     const projectTitle = document.getElementById('projectTitle').value || '스토리보드';
     const today = new Date().toLocaleDateString('ko-KR');
-
-    // Collect canvas images
-    const canvasDataURLs = {};
-    for (const f of frames) {
-      const canvas = document.getElementById(`canvas-${f.id}`);
-      if (canvas) canvasDataURLs[f.id] = canvas.toDataURL('image/png');
-    }
-
     const colCount = currentLayout === '3col' ? 3 : currentLayout === '2col' ? 2 : 1;
+
+    // A4 기준 (px @ 96dpi): 794 x 1123
+    const A4W = 794, A4H = 1123;
+    const marginX = 40, marginY = 40;
+    const headerH = 52, footerH = 32;
+    const gridW = A4W - marginX * 2;
+    const colW = (gridW - (colCount - 1) * 16) / colCount;
+
+    const ratioMap = { '16-9': 9/16, '4-3': 3/4, '1-1': 1, '9-16': 16/9 };
+    const imgRatio = ratioMap[currentRatio] || 9/16;
+    const imgH = Math.round(colW * imgRatio);
+
+    // 필드 표시 여부
+    const show = {
+      scene:    document.getElementById('showScene').checked,
+      desc:     document.getElementById('showDesc').checked,
+      dialog:   document.getElementById('showDialog').checked,
+      camera:   document.getElementById('showCamera').checked,
+      duration: document.getElementById('showDuration').checked,
+    };
+
+    // 필드 몇 줄인지 계산해서 fieldH 동적 결정
+    const activeFields = [show.scene, show.desc, show.dialog, show.camera, show.duration].filter(Boolean).length;
+    const fieldH = Math.max(60, activeFields * 22 + 16);
+    const frameH = imgH + fieldH;
+    const rowH = frameH + 16;
+
+    // 페이지당 행 수
+    const bodyH = A4H - marginY - headerH - footerH - marginY;
+    const rowsPerPage = Math.max(1, Math.floor(bodyH / rowH));
+
+    // 행으로 분리
     const rows = [];
     for (let i = 0; i < frames.length; i += colCount) rows.push(frames.slice(i, i + colCount));
 
-    const pageW = 210, pageH = 297;
-    const marginX = 14, marginY = 14;
-    const headerH = 18;
-    const footerH = 10;
-    const gridW = pageW - marginX * 2;
-    const colW = (gridW - (colCount - 1) * 5) / colCount;
-
-    // Ratio heights
-    const ratioMap = { '16-9': 9/16, '4-3': 3/4, '1-1': 1, '9-16': 16/9 };
-    const imgRatio = ratioMap[currentRatio] || 9/16;
-    const imgH = colW * imgRatio;
-    const fieldH = 28;
-    const frameH = imgH + fieldH;
-    const rowH = frameH + 6;
-
-    // Figure out how many rows per page
-    const bodyH = pageH - marginY - headerH - footerH - marginY;
-    const rowsPerPage = Math.max(1, Math.floor(bodyH / rowH));
-
     const pageGroups = [];
-    for (let i = 0; i < rows.length; i += rowsPerPage) {
-      pageGroups.push(rows.slice(i, i + rowsPerPage));
+    for (let i = 0; i < rows.length; i += rowsPerPage) pageGroups.push(rows.slice(i, i + rowsPerPage));
+
+    // canvas 드로잉 데이터 수집
+    const canvasDataURLs = {};
+    for (const f of frames) {
+      const c = document.getElementById(`canvas-${f.id}`);
+      if (c) canvasDataURLs[f.id] = c.toDataURL('image/png');
     }
 
-    pageGroups.forEach((pageRows, pageIdx) => {
-      if (pageIdx > 0) pdf.addPage();
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [A4W, A4H], hotfixes: ['px_scaling'] });
 
-      // Header
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(13);
-      pdf.setTextColor(20, 20, 20);
-      pdf.text(projectTitle, marginX, marginY + 7);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(8);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(today, pageW - marginX, marginY + 7, { align: 'right' });
-      pdf.setDrawColor(30, 30, 30);
-      pdf.setLineWidth(0.5);
-      pdf.line(marginX, marginY + 10, pageW - marginX, marginY + 10);
+    for (let pageIdx = 0; pageIdx < pageGroups.length; pageIdx++) {
+      if (pageIdx > 0) pdf.addPage([A4W, A4H]);
+      const pageRows = pageGroups[pageIdx];
 
-      let y = marginY + headerH;
+      // ── 각 페이지를 오프스크린 div로 렌더링 후 캡처 ──
+      const pageDiv = document.createElement('div');
+      pageDiv.style.cssText = `
+        position:fixed; top:-9999px; left:-9999px;
+        width:${A4W}px; min-height:${A4H}px;
+        background:#ffffff;
+        font-family:'Noto Sans KR',sans-serif;
+        color:#111;
+        box-sizing:border-box;
+        padding:${marginY}px ${marginX}px;
+      `;
 
-      pageRows.forEach(row => {
-        row.forEach((frame, ci) => {
-          const x = marginX + ci * (colW + 5);
+      // 헤더
+      pageDiv.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;
+                    padding-bottom:12px;margin-bottom:20px;border-bottom:2px solid #111;">
+          <div style="font-size:20px;font-weight:700;letter-spacing:-0.01em;">${projectTitle}</div>
+          <div style="font-size:11px;color:#888;">${today} · ${pageIdx+1} / ${pageGroups.length}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(${colCount},1fr);gap:16px;" id="pg-grid"></div>
+        <div style="position:absolute;bottom:${marginY}px;left:${marginX}px;right:${marginX}px;
+                    border-top:1px solid #eee;padding-top:8px;
+                    display:flex;justify-content:space-between;font-size:10px;color:#bbb;">
+          <span>Storyboard Maker</span>
+          <span>Page ${pageIdx+1} of ${pageGroups.length}</span>
+        </div>
+      `;
+      document.body.appendChild(pageDiv);
+      const grid = pageDiv.querySelector('#pg-grid');
 
-          // Frame border
-          pdf.setDrawColor(60, 60, 60);
-          pdf.setLineWidth(0.3);
-          pdf.rect(x, y, colW, frameH);
+      // 각 프레임 카드 생성
+      for (const row of pageRows) {
+        for (const frame of row) {
+          const card = document.createElement('div');
+          card.style.cssText = `border:1.5px solid #222;border-radius:4px;overflow:hidden;background:#fff;`;
 
-          // Image area
-          const dataURL = canvasDataURLs[frame.id];
-          if (dataURL) {
-            try {
-              pdf.addImage(dataURL, 'PNG', x, y, colW, imgH);
-            } catch(err) {
-              pdf.setFillColor(230, 230, 230);
-              pdf.rect(x, y, colW, imgH, 'F');
-            }
-          } else {
-            pdf.setFillColor(230, 230, 230);
-            pdf.rect(x, y, colW, imgH, 'F');
+          // 이미지 영역
+          const imgBox = document.createElement('div');
+          imgBox.style.cssText = `width:100%;height:${imgH}px;background:#e8e8e8;position:relative;overflow:hidden;`;
+
+          if (canvasDataURLs[frame.id]) {
+            const img = document.createElement('img');
+            img.src = canvasDataURLs[frame.id];
+            img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;`;
+            imgBox.appendChild(img);
           }
 
-          // Frame number badge
-          pdf.setFillColor(20, 20, 20);
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(6);
-          pdf.rect(x + 1, y + 1, 10, 4, 'F');
-          pdf.text(`F${frame.id}`, x + 6, y + 4, { align: 'center' });
+          // 프레임 번호 뱃지
+          const badge = document.createElement('div');
+          badge.style.cssText = `position:absolute;top:6px;left:8px;background:rgba(0,0,0,0.6);
+            color:#fff;font-size:9px;font-family:monospace;padding:2px 6px;border-radius:2px;`;
+          badge.textContent = `F${frame.id}`;
+          imgBox.appendChild(badge);
+          card.appendChild(imgBox);
 
-          // Divider line
-          pdf.setDrawColor(180, 180, 180);
-          pdf.setLineWidth(0.2);
-          pdf.line(x, y + imgH, x + colW, y + imgH);
+          // 필드 영역
+          const fields = document.createElement('div');
+          fields.style.cssText = `padding:10px 12px;border-top:1px solid #ddd;display:flex;flex-direction:column;gap:5px;`;
 
-          // Fields
-          const fy = y + imgH + 3;
-          pdf.setTextColor(60, 60, 60);
-          pdf.setFontSize(6.5);
-
-          const show = {
-            scene: document.getElementById('showScene').checked,
-            desc: document.getElementById('showDesc').checked,
-            dialog: document.getElementById('showDialog').checked,
-            camera: document.getElementById('showCamera').checked,
-            duration: document.getElementById('showDuration').checked,
+          const addRow = (label, val) => {
+            if (!val) return;
+            const row = document.createElement('div');
+            row.style.cssText = `display:flex;gap:6px;font-size:11px;line-height:1.5;`;
+            row.innerHTML = `<span style="font-weight:700;color:#555;min-width:40px;flex-shrink:0;">${label}</span>
+                             <span style="color:#111;word-break:break-all;">${val}</span>`;
+            fields.appendChild(row);
           };
 
-          let lineY = fy;
-          const lineH = 4.5;
-          const labelX = x + 1.5;
-          const valX = x + 12;
-          const maxW = colW - 13;
+          if (show.scene)    addRow('씬', frame.scene);
+          if (show.desc)     addRow('설명', frame.desc);
+          if (show.dialog)   addRow('대사', frame.dialog);
+          if (show.camera)   addRow('카메라', frame.camera);
+          if (show.duration) addRow('시간', frame.duration);
 
-          const addField = (label, val) => {
-            if (!val || lineY > y + frameH - 2) return;
-            pdf.setFont('helvetica', 'bold');
-            pdf.setTextColor(100, 100, 100);
-            pdf.text(label, labelX, lineY);
-            pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(30, 30, 30);
-            const lines = pdf.splitTextToSize(val, maxW);
-            pdf.text(lines[0], valX, lineY);
-            lineY += lineH;
-          };
+          card.appendChild(fields);
+          grid.appendChild(card);
+        }
+        // 빈 셀 채우기
+        const remainder = colCount - (row.length % colCount);
+        if (remainder < colCount) {
+          for (let i = 0; i < remainder; i++) {
+            const empty = document.createElement('div');
+            grid.appendChild(empty);
+          }
+        }
+      }
 
-          if (show.scene && frame.scene) addField('씬:', frame.scene);
-          if (show.desc && frame.desc) addField('설명:', frame.desc);
-          if (show.dialog && frame.dialog) addField('대사:', frame.dialog);
-          if (show.camera && frame.camera) addField('카메라:', frame.camera);
-          if (show.duration && frame.duration) addField('시간:', frame.duration);
-        });
-
-        y += rowH;
+      // html2canvas로 캡처
+      await new Promise(r => setTimeout(r, 200));
+      const canvas = await html2canvas(pageDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        width: A4W,
+        height: A4H,
       });
 
-      // Footer
-      pdf.setFontSize(7);
-      pdf.setTextColor(180, 180, 180);
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setLineWidth(0.2);
-      pdf.line(marginX, pageH - marginY - footerH, pageW - marginX, pageH - marginY - footerH);
-      pdf.text('Storyboard Maker', marginX, pageH - marginY - footerH + 5);
-      pdf.text(`${pageIdx + 1} / ${pageGroups.length}`, pageW - marginX, pageH - marginY - footerH + 5, { align: 'right' });
-    });
+      document.body.removeChild(pageDiv);
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      pdf.addImage(imgData, 'JPEG', 0, 0, A4W, A4H);
+    }
 
     pdf.save(`${projectTitle}.pdf`);
   } catch (err) {
     console.error(err);
-    alert('PDF 내보내기 중 오류가 발생했습니다.');
+    alert('PDF 내보내기 중 오류가 발생했습니다: ' + err.message);
   } finally {
     loading.classList.remove('show');
   }
