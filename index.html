@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스토리보드 메이커</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --accent: #e8ff47;
+    --accent2: #ff6b35;
+    --text: #f0f0f0;
+    --text-muted: #888;
+    --frame-bg: #1a1a20;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 58px;
+    background: rgba(15,15,17,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-dot { width: 8px; height: 8px; background: var(--accent2); border-radius: 50%; }
+
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+
+  .project-title-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    padding: 4px 8px;
+    width: 220px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .project-title-input:focus { border-color: var(--accent); }
+
+  .btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.18s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+
+  .btn-accent {
+    background: var(--accent);
+    color: #0f0f11;
+    font-weight: 700;
+  }
+  .btn-accent:hover { background: #d4eb2e; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(232,255,71,0.3); }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid #ff4444;
+    color: #ff6666;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .btn-danger:hover { background: #ff4444; color: #fff; }
+
+  /* ── LAYOUT ── */
+  .app-container {
+    display: flex;
+    margin-top: 58px;
+    height: calc(100vh - 58px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  /* Template picker */
+  .template-options { display: flex; flex-direction: column; gap: 6px; }
+
+  .template-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: var(--surface2);
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+    text-align: left;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .template-btn:hover { border-color: var(--border); color: var(--text); }
+  .template-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.06); }
+
+  .template-icon {
+    width: 36px;
+    height: 24px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    opacity: 0.6;
+  }
+
+  /* Aspect ratio */
+  .ratio-btns { display: flex; gap: 6px; }
+  .ratio-btn {
+    flex: 1;
+    padding: 6px 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Space Mono', monospace;
+    text-align: center;
+  }
+  .ratio-btn:hover { color: var(--text); }
+  .ratio-btn.active { border-color: var(--accent); color: var(--accent); }
+
+  /* Colors */
+  .color-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .color-swatch {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .color-swatch:hover { transform: scale(1.15); }
+  .color-swatch.active { border-color: var(--accent); }
+
+  .add-frame-btn {
+    margin: 16px;
+    padding: 10px;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: calc(100% - 32px);
+    font-family: 'Noto Sans KR', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .add-frame-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px 36px;
+    background: var(--bg);
+  }
+
+  .frames-grid {
+    display: grid;
+    gap: 28px;
+  }
+
+  /* Frame layouts */
+  .layout-1col { grid-template-columns: 1fr; max-width: 780px; margin: 0 auto; }
+  .layout-2col { grid-template-columns: 1fr 1fr; max-width: 900px; margin: 0 auto; }
+  .layout-3col { grid-template-columns: 1fr 1fr 1fr; max-width: 1100px; margin: 0 auto; }
+
+  /* ── FRAME CARD ── */
+  .frame-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .frame-card:hover { border-color: #3a3a4a; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+  .frame-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(232,255,71,0.2); }
+
+  .frame-number {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    z-index: 2;
+    background: rgba(15,15,17,0.7);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .frame-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255,68,68,0.15);
+    border: 1px solid rgba(255,68,68,0.3);
+    color: #ff6666;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .frame-card:hover .frame-delete { display: flex; }
+  .frame-delete:hover { background: rgba(255,68,68,0.4); }
+
+  /* ── DRAWING AREA ── */
+  .frame-canvas-wrapper {
+    position: relative;
+    width: 100%;
+    background: var(--frame-bg);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    cursor: crosshair;
+  }
+
+  .frame-canvas-wrapper.ratio-16-9 { padding-top: 56.25%; }
+  .frame-canvas-wrapper.ratio-4-3  { padding-top: 75%; }
+  .frame-canvas-wrapper.ratio-1-1  { padding-top: 100%; }
+  .frame-canvas-wrapper.ratio-9-16 { padding-top: 177.78%; }
+
+  .frame-canvas-wrapper canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  .frame-canvas-placeholder {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--border);
+    pointer-events: none;
+  }
+
+  .frame-canvas-placeholder svg { width: 36px; height: 36px; opacity: 0.4; margin-bottom: 8px; }
+  .frame-canvas-placeholder p { font-size: 11px; }
+
+  /* Image upload overlay */
+  .frame-img {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  .upload-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15,15,17,0.5);
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .frame-canvas-wrapper:hover .upload-overlay { opacity: 1; }
+
+  /* ── FRAME FIELDS ── */
+  .frame-fields {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .field-row { display: flex; gap: 8px; align-items: flex-start; }
+
+  .field-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    min-width: 44px;
+    padding-top: 5px;
+  }
+
+  .field-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 5px 8px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    outline: none;
+    resize: none;
+    transition: border-color 0.15s;
+    line-height: 1.5;
+  }
+  .field-input:focus { border-color: var(--accent); background: #1e1e24; }
+  .field-input::placeholder { color: #444; }
+
+  textarea.field-input { min-height: 56px; }
+
+  /* ── DRAW TOOLS ── */
+  .draw-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(15,15,17,0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 36px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .tool-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 5px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .tool-btn:hover { border-color: var(--text-muted); color: var(--text); }
+  .tool-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.06); }
+
+  .tool-separator { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+  .stroke-size {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .stroke-slider {
+    -webkit-appearance: none;
+    width: 70px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+  .stroke-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .draw-color-picker { display: flex; gap: 4px; }
+  .draw-color {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .draw-color:hover { transform: scale(1.2); }
+  .draw-color.active { border-color: var(--accent); }
+
+  /* ── LOADING OVERLAY ── */
+  .export-loading {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(10,10,12,0.9);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .export-loading.show { display: flex; }
+
+  .loading-spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 80px 40px;
+    color: var(--text-muted);
+  }
+  .empty-state h2 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+  .empty-state p { font-size: 13px; margin-bottom: 24px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── PDF EXPORT SNAPSHOT ── */
+  #pdf-snapshot {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    width: 794px; /* A4 */
+    background: #ffffff;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111;
+  }
+
+  .pdf-page {
+    width: 794px;
+    min-height: 1123px;
+    padding: 48px 48px 60px;
+    background: #fff;
+    page-break-after: always;
+    position: relative;
+  }
+
+  .pdf-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 32px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #111;
+  }
+
+  .pdf-project-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .pdf-meta { font-size: 11px; color: #777; }
+
+  .pdf-frames-grid {
+    display: grid;
+    gap: 24px;
+  }
+
+  .pdf-1col { grid-template-columns: 1fr; }
+  .pdf-2col { grid-template-columns: 1fr 1fr; }
+  .pdf-3col { grid-template-columns: 1fr 1fr 1fr; }
+
+  .pdf-frame {
+    border: 1.5px solid #222;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .pdf-frame-img-box {
+    width: 100%;
+    background: #f0f0f0;
+    position: relative;
+  }
+
+  .pdf-frame-img-box img,
+  .pdf-frame-img-box canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .pdf-frame-num {
+    position: absolute;
+    top: 6px; left: 8px;
+    font-family: monospace;
+    font-size: 9px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  .pdf-frame-fields {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border-top: 1px solid #ddd;
+  }
+
+  .pdf-field-row { display: flex; gap: 6px; font-size: 10px; align-items: flex-start; }
+  .pdf-field-label { font-weight: 700; min-width: 42px; color: #555; }
+  .pdf-field-value { flex: 1; color: #111; line-height: 1.4; }
+
+  .pdf-footer {
+    position: absolute;
+    bottom: 24px; left: 48px; right: 48px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: #aaa;
+    border-top: 1px solid #eee;
+    padding-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="export-loading" id="exportLoading">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">PDF 생성 중...</div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    STORYBOARD MAKER
+  </div>
+  <input class="project-title-input" id="projectTitle" placeholder="프로젝트 제목 입력..." value="무제 스토리보드">
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="clearAll()">초기화</button>
+    <button class="btn btn-accent" onclick="exportPDF()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      PDF 내보내기
+    </button>
+  </div>
+</header>
+
+<!-- App layout -->
+<div class="app-container">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">레이아웃</div>
+      <div class="template-options">
+        <button class="template-btn active" onclick="setLayout('1col',this)">
+          <div class="template-icon">▬</div> 1열 (세로)
+        </button>
+        <button class="template-btn" onclick="setLayout('2col',this)">
+          <div class="template-icon" style="display:grid;grid-template-columns:1fr 1fr;gap:2px"><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span></div>
+          2열 그리드
+        </button>
+        <button class="template-btn" onclick="setLayout('3col',this)">
+          <div class="template-icon" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px"><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span></div>
+          3열 그리드
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">화면 비율</div>
+      <div class="ratio-btns">
+        <button class="ratio-btn active" onclick="setRatio('16-9',this)">16:9</button>
+        <button class="ratio-btn" onclick="setRatio('4-3',this)">4:3</button>
+        <button class="ratio-btn" onclick="setRatio('1-1',this)">1:1</button>
+        <button class="ratio-btn" onclick="setRatio('9-16',this)">9:16</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">필드 표시</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);cursor:pointer">
+          <input type="checkbox" id="showScene" checked onchange="updateFieldVisibility()"> 씬 번호
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);cursor:pointer">
+          <input type="checkbox" id="showDesc" checked onchange="updateFieldVisibility()"> 장면 설명
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);cursor:pointer">
+          <input type="checkbox" id="showDialog" checked onchange="updateFieldVisibility()"> 대사 / 사운드
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);cursor:pointer">
+          <input type="checkbox" id="showCamera" checked onchange="updateFieldVisibility()"> 카메라 동작
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);cursor:pointer">
+          <input type="checkbox" id="showDuration" checked onchange="updateFieldVisibility()"> 시간
+        </label>
+      </div>
+    </div>
+
+    <button class="add-frame-btn" onclick="addFrame()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      프레임 추가
+    </button>
+
+  </aside>
+
+  <!-- Main content -->
+  <main class="main" id="mainArea">
+
+    <!-- Draw toolbar -->
+    <div class="draw-toolbar" id="drawToolbar">
+      <span style="font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-right:4px">DRAW</span>
+      <button class="tool-btn active" id="toolPen" onclick="setTool('pen')">✏️ 펜</button>
+      <button class="tool-btn" id="toolLine" onclick="setTool('line')">╱ 선</button>
+      <button class="tool-btn" id="toolRect" onclick="setTool('rect')">▭ 사각형</button>
+      <button class="tool-btn" id="toolEllipse" onclick="setTool('ellipse')">○ 원</button>
+      <button class="tool-btn" id="toolArrow" onclick="setTool('arrow')">→ 화살표</button>
+      <button class="tool-btn" id="toolEraser" onclick="setTool('eraser')">◻ 지우개</button>
+      <div class="tool-separator"></div>
+      <div class="stroke-size">
+        <span>굵기</span>
+        <input type="range" class="stroke-slider" id="strokeSize" min="1" max="20" value="2">
+      </div>
+      <div class="tool-separator"></div>
+      <div class="draw-color-picker" id="drawColors"></div>
+      <div class="tool-separator"></div>
+      <button class="tool-btn" onclick="clearActiveCanvas()" style="color:#ff6666;border-color:#ff4444">🗑 지우기</button>
+      <button class="tool-btn" onclick="undoActiveCanvas()">↩ 되돌리기</button>
+    </div>
+
+    <!-- Frames grid -->
+    <div class="frames-grid layout-1col" id="framesGrid"></div>
+
+  </main>
+</div>
+
+<!-- Hidden PDF snapshot container -->
+<div id="pdf-snapshot"></div>
+
+<script>
+// ─── STATE ───────────────────────────────
+let frames = [];
+let nextId = 1;
+let currentLayout = '1col';
+let currentRatio = '16-9';
+let currentTool = 'pen';
+let currentColor = '#e8ff47';
+let currentStroke = 2;
+let activeCanvas = null;
+let activeCtx = null;
+let isDrawing = false;
+let startX, startY;
+let histories = {}; // id -> array of ImageData snapshots
+
+const DRAW_COLORS = ['#e8ff47','#ff6b35','#64b5f6','#ef5350','#66bb6a','#ab47bc','#ffffff','#000000'];
+
+// ─── INIT ─────────────────────────────────
+function init() {
+  renderColorPicker();
+  addFrame();
+  addFrame();
+  addFrame();
+}
+
+// ─── COLOR PICKER ─────────────────────────
+function renderColorPicker() {
+  const container = document.getElementById('drawColors');
+  DRAW_COLORS.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'draw-color' + (c === currentColor ? ' active' : '');
+    d.style.background = c;
+    d.style.border = c === '#ffffff' ? '2px solid #333' : '2px solid transparent';
+    d.onclick = () => {
+      currentColor = c;
+      document.querySelectorAll('.draw-color').forEach(x => x.classList.remove('active'));
+      d.classList.add('active');
+    };
+    container.appendChild(d);
+  });
+}
+
+// ─── LAYOUT / RATIO ───────────────────────
+function setLayout(layout, btn) {
+  currentLayout = layout;
+  document.querySelectorAll('.template-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const grid = document.getElementById('framesGrid');
+  grid.className = `frames-grid layout-${layout}`;
+}
+
+function setRatio(ratio, btn) {
+  currentRatio = ratio;
+  document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.frame-canvas-wrapper').forEach(w => {
+    w.className = `frame-canvas-wrapper ratio-${ratio}`;
+  });
+  // Resize all canvases
+  frames.forEach(f => resizeCanvas(f.id));
+}
+
+// ─── ADD FRAME ────────────────────────────
+function addFrame() {
+  const id = nextId++;
+  frames.push({ id, scene: '', desc: '', dialog: '', camera: '', duration: '', imgSrc: null });
+  histories[id] = [];
+  renderFrame(id);
+}
+
+function renderFrame(id) {
+  const grid = document.getElementById('framesGrid');
+  const frame = frames.find(f => f.id === id);
+  if (!frame) return;
+
+  const card = document.createElement('div');
+  card.className = 'frame-card';
+  card.id = `frame-${id}`;
+  card.innerHTML = `
+    <div class="frame-number">FRAME ${id}</div>
+    <button class="frame-delete" onclick="deleteFrame(${id})" title="프레임 삭제">×</button>
+    <div class="frame-canvas-wrapper ratio-${currentRatio}" id="wrapper-${id}">
+      <canvas id="canvas-${id}"></canvas>
+      <div class="frame-canvas-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <p>여기에 그리거나<br>이미지를 업로드하세요</p>
+      </div>
+      <div class="upload-overlay" onclick="triggerUpload(${id})">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+        이미지 업로드
+      </div>
+      <input type="file" id="upload-${id}" accept="image/*" style="display:none" onchange="loadImage(${id}, this)">
+    </div>
+    <div class="frame-fields">
+      <div class="field-row scene-row">
+        <span class="field-label">씬</span>
+        <input class="field-input" placeholder="씬 번호 / 제목" value="${frame.scene}" oninput="updateField(${id},'scene',this.value)">
+      </div>
+      <div class="field-row desc-row">
+        <span class="field-label">설명</span>
+        <textarea class="field-input" placeholder="장면을 설명하세요..." oninput="updateField(${id},'desc',this.value)">${frame.desc}</textarea>
+      </div>
+      <div class="field-row dialog-row">
+        <span class="field-label">대사</span>
+        <textarea class="field-input" placeholder="대사 또는 사운드 정보..." oninput="updateField(${id},'dialog',this.value)">${frame.dialog}</textarea>
+      </div>
+      <div class="field-row camera-row">
+        <span class="field-label">카메라</span>
+        <input class="field-input" placeholder="예: 와이드샷, 줌인, 패닝..." value="${frame.camera}" oninput="updateField(${id},'camera',this.value)">
+      </div>
+      <div class="field-row duration-row">
+        <span class="field-label">시간</span>
+        <input class="field-input" placeholder="예: 3초, 00:05" value="${frame.duration}" oninput="updateField(${id},'duration',this.value)">
+      </div>
+    </div>
+  `;
+
+  grid.appendChild(card);
+  updateFieldVisibility();
+
+  // Init canvas after DOM is ready
+  setTimeout(() => {
+    initCanvas(id);
+  }, 50);
+}
+
+// ─── CANVAS ───────────────────────────────
+function initCanvas(id) {
+  const wrapper = document.getElementById(`wrapper-${id}`);
+  const canvas = document.getElementById(`canvas-${id}`);
+  if (!wrapper || !canvas) return;
+
+  resizeCanvas(id);
+
+  canvas.addEventListener('mousedown', e => startDraw(e, id));
+  canvas.addEventListener('mousemove', e => draw(e, id));
+  canvas.addEventListener('mouseup', e => endDraw(e, id));
+  canvas.addEventListener('mouseleave', e => endDraw(e, id));
+  canvas.addEventListener('click', () => { activeCanvas = canvas; activeCtx = canvas.getContext('2d'); });
+
+  // Touch support
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); startDraw(e.touches[0], id); }, { passive: false });
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e.touches[0], id); }, { passive: false });
+  canvas.addEventListener('touchend', e => { e.preventDefault(); endDraw(e.changedTouches[0], id); }, { passive: false });
+
+  activeCanvas = canvas;
+  activeCtx = canvas.getContext('2d');
+}
+
+function resizeCanvas(id) {
+  const wrapper = document.getElementById(`wrapper-${id}`);
+  const canvas = document.getElementById(`canvas-${id}`);
+  if (!wrapper || !canvas) return;
+  const ctx = canvas.getContext('2d');
+  const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  canvas.width = wrapper.clientWidth;
+  canvas.height = wrapper.clientHeight;
+  ctx.putImageData(snapshot, 0, 0);
+}
+
+function getCanvasPos(e, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY
+  };
+}
+
+function startDraw(e, id) {
+  const canvas = document.getElementById(`canvas-${id}`);
+  activeCanvas = canvas;
+  activeCtx = canvas.getContext('2d');
+  isDrawing = true;
+  const pos = getCanvasPos(e, canvas);
+  startX = pos.x; startY = pos.y;
+
+  // Save history snapshot
+  if (!histories[id]) histories[id] = [];
+  histories[id].push(activeCtx.getImageData(0, 0, canvas.width, canvas.height));
+  if (histories[id].length > 30) histories[id].shift();
+
+  if (currentTool === 'pen' || currentTool === 'eraser') {
+    activeCtx.beginPath();
+    activeCtx.moveTo(startX, startY);
+  }
+}
+
+function draw(e, id) {
+  if (!isDrawing) return;
+  const canvas = document.getElementById(`canvas-${id}`);
+  if (canvas !== activeCanvas) return;
+  const ctx = activeCtx;
+  const pos = getCanvasPos(e, canvas);
+  const x = pos.x, y = pos.y;
+  const size = parseInt(document.getElementById('strokeSize').value);
+
+  if (currentTool === 'pen') {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = size;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  } else if (currentTool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth = size * 4;
+    ctx.lineCap = 'round';
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  } else {
+    // Shape preview: restore last snapshot
+    const snap = histories[id][histories[id].length - 1];
+    if (snap) ctx.putImageData(snap, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = size;
+    ctx.lineCap = 'round';
+
+    if (currentTool === 'line') {
+      ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x, y); ctx.stroke();
+    } else if (currentTool === 'rect') {
+      ctx.beginPath(); ctx.strokeRect(startX, startY, x - startX, y - startY);
+    } else if (currentTool === 'ellipse') {
+      ctx.beginPath();
+      ctx.ellipse((startX+x)/2, (startY+y)/2, Math.abs(x-startX)/2, Math.abs(y-startY)/2, 0, 0, Math.PI*2);
+      ctx.stroke();
+    } else if (currentTool === 'arrow') {
+      drawArrow(ctx, startX, startY, x, y, size);
+    }
+  }
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, size) {
+  const angle = Math.atan2(y2-y1, x2-x1);
+  const hw = size * 3 + 6;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - hw * Math.cos(angle - Math.PI/6), y2 - hw * Math.sin(angle - Math.PI/6));
+  ctx.lineTo(x2 - hw * Math.cos(angle + Math.PI/6), y2 - hw * Math.sin(angle + Math.PI/6));
+  ctx.closePath();
+  ctx.fillStyle = currentColor;
+  ctx.fill();
+}
+
+function endDraw(e, id) {
+  if (!isDrawing) return;
+  isDrawing = false;
+  if (activeCtx) { activeCtx.globalCompositeOperation = 'source-over'; activeCtx.beginPath(); }
+}
+
+function setTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('tool' + tool.charAt(0).toUpperCase() + tool.slice(1));
+  if (btn) btn.classList.add('active');
+}
+
+function clearActiveCanvas() {
+  if (!activeCanvas || !activeCtx) return;
+  activeCtx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
+}
+
+function undoActiveCanvas() {
+  const id = frames.find(f => document.getElementById(`canvas-${f.id}`) === activeCanvas)?.id;
+  if (id === undefined || !histories[id] || histories[id].length === 0) return;
+  const snap = histories[id].pop();
+  activeCtx.putImageData(snap, 0, 0);
+}
+
+// ─── IMAGE UPLOAD ─────────────────────────
+function triggerUpload(id) {
+  document.getElementById(`upload-${id}`).click();
+}
+
+function loadImage(id, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById(`canvas-${id}`);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw image covering canvas
+      const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (canvas.width - w)/2, (canvas.height - h)/2, w, h);
+      // Hide placeholder
+      const placeholder = document.querySelector(`#wrapper-${id} .frame-canvas-placeholder`);
+      if (placeholder) placeholder.style.display = 'none';
+    };
+    img.src = e.target.result;
+    frames.find(f => f.id === id).imgSrc = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── FIELD MANAGEMENT ─────────────────────
+function updateField(id, field, val) {
+  const frame = frames.find(f => f.id === id);
+  if (frame) frame[field] = val;
+}
+
+function updateFieldVisibility() {
+  const show = {
+    scene: document.getElementById('showScene').checked,
+    desc: document.getElementById('showDesc').checked,
+    dialog: document.getElementById('showDialog').checked,
+    camera: document.getElementById('showCamera').checked,
+    duration: document.getElementById('showDuration').checked,
+  };
+  document.querySelectorAll('.scene-row').forEach(el => el.style.display = show.scene ? '' : 'none');
+  document.querySelectorAll('.desc-row').forEach(el => el.style.display = show.desc ? '' : 'none');
+  document.querySelectorAll('.dialog-row').forEach(el => el.style.display = show.dialog ? '' : 'none');
+  document.querySelectorAll('.camera-row').forEach(el => el.style.display = show.camera ? '' : 'none');
+  document.querySelectorAll('.duration-row').forEach(el => el.style.display = show.duration ? '' : 'none');
+}
+
+// ─── DELETE FRAME ─────────────────────────
+function deleteFrame(id) {
+  if (frames.length <= 1) { alert('최소 1개의 프레임이 필요합니다.'); return; }
+  frames = frames.filter(f => f.id !== id);
+  delete histories[id];
+  const el = document.getElementById(`frame-${id}`);
+  if (el) el.remove();
+}
+
+function clearAll() {
+  if (!confirm('모든 프레임을 초기화할까요?')) return;
+  frames = [];
+  nextId = 1;
+  histories = {};
+  document.getElementById('framesGrid').innerHTML = '';
+  addFrame();
+}
+
+// ─── PDF EXPORT ───────────────────────────
+async function exportPDF() {
+  const loading = document.getElementById('exportLoading');
+  loading.classList.add('show');
+
+  await new Promise(r => setTimeout(r, 100));
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const projectTitle = document.getElementById('projectTitle').value || '스토리보드';
+    const today = new Date().toLocaleDateString('ko-KR');
+
+    // Collect canvas images
+    const canvasDataURLs = {};
+    for (const f of frames) {
+      const canvas = document.getElementById(`canvas-${f.id}`);
+      if (canvas) canvasDataURLs[f.id] = canvas.toDataURL('image/png');
+    }
+
+    const colCount = currentLayout === '3col' ? 3 : currentLayout === '2col' ? 2 : 1;
+    const rows = [];
+    for (let i = 0; i < frames.length; i += colCount) rows.push(frames.slice(i, i + colCount));
+
+    const pageW = 210, pageH = 297;
+    const marginX = 14, marginY = 14;
+    const headerH = 18;
+    const footerH = 10;
+    const gridW = pageW - marginX * 2;
+    const colW = (gridW - (colCount - 1) * 5) / colCount;
+
+    // Ratio heights
+    const ratioMap = { '16-9': 9/16, '4-3': 3/4, '1-1': 1, '9-16': 16/9 };
+    const imgRatio = ratioMap[currentRatio] || 9/16;
+    const imgH = colW * imgRatio;
+    const fieldH = 28;
+    const frameH = imgH + fieldH;
+    const rowH = frameH + 6;
+
+    // Figure out how many rows per page
+    const bodyH = pageH - marginY - headerH - footerH - marginY;
+    const rowsPerPage = Math.max(1, Math.floor(bodyH / rowH));
+
+    const pageGroups = [];
+    for (let i = 0; i < rows.length; i += rowsPerPage) {
+      pageGroups.push(rows.slice(i, i + rowsPerPage));
+    }
+
+    pageGroups.forEach((pageRows, pageIdx) => {
+      if (pageIdx > 0) pdf.addPage();
+
+      // Header
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(13);
+      pdf.setTextColor(20, 20, 20);
+      pdf.text(projectTitle, marginX, marginY + 7);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(today, pageW - marginX, marginY + 7, { align: 'right' });
+      pdf.setDrawColor(30, 30, 30);
+      pdf.setLineWidth(0.5);
+      pdf.line(marginX, marginY + 10, pageW - marginX, marginY + 10);
+
+      let y = marginY + headerH;
+
+      pageRows.forEach(row => {
+        row.forEach((frame, ci) => {
+          const x = marginX + ci * (colW + 5);
+
+          // Frame border
+          pdf.setDrawColor(60, 60, 60);
+          pdf.setLineWidth(0.3);
+          pdf.rect(x, y, colW, frameH);
+
+          // Image area
+          const dataURL = canvasDataURLs[frame.id];
+          if (dataURL) {
+            try {
+              pdf.addImage(dataURL, 'PNG', x, y, colW, imgH);
+            } catch(err) {
+              pdf.setFillColor(230, 230, 230);
+              pdf.rect(x, y, colW, imgH, 'F');
+            }
+          } else {
+            pdf.setFillColor(230, 230, 230);
+            pdf.rect(x, y, colW, imgH, 'F');
+          }
+
+          // Frame number badge
+          pdf.setFillColor(20, 20, 20);
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(6);
+          pdf.rect(x + 1, y + 1, 10, 4, 'F');
+          pdf.text(`F${frame.id}`, x + 6, y + 4, { align: 'center' });
+
+          // Divider line
+          pdf.setDrawColor(180, 180, 180);
+          pdf.setLineWidth(0.2);
+          pdf.line(x, y + imgH, x + colW, y + imgH);
+
+          // Fields
+          const fy = y + imgH + 3;
+          pdf.setTextColor(60, 60, 60);
+          pdf.setFontSize(6.5);
+
+          const show = {
+            scene: document.getElementById('showScene').checked,
+            desc: document.getElementById('showDesc').checked,
+            dialog: document.getElementById('showDialog').checked,
+            camera: document.getElementById('showCamera').checked,
+            duration: document.getElementById('showDuration').checked,
+          };
+
+          let lineY = fy;
+          const lineH = 4.5;
+          const labelX = x + 1.5;
+          const valX = x + 12;
+          const maxW = colW - 13;
+
+          const addField = (label, val) => {
+            if (!val || lineY > y + frameH - 2) return;
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(label, labelX, lineY);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(30, 30, 30);
+            const lines = pdf.splitTextToSize(val, maxW);
+            pdf.text(lines[0], valX, lineY);
+            lineY += lineH;
+          };
+
+          if (show.scene && frame.scene) addField('씬:', frame.scene);
+          if (show.desc && frame.desc) addField('설명:', frame.desc);
+          if (show.dialog && frame.dialog) addField('대사:', frame.dialog);
+          if (show.camera && frame.camera) addField('카메라:', frame.camera);
+          if (show.duration && frame.duration) addField('시간:', frame.duration);
+        });
+
+        y += rowH;
+      });
+
+      // Footer
+      pdf.setFontSize(7);
+      pdf.setTextColor(180, 180, 180);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.2);
+      pdf.line(marginX, pageH - marginY - footerH, pageW - marginX, pageH - marginY - footerH);
+      pdf.text('Storyboard Maker', marginX, pageH - marginY - footerH + 5);
+      pdf.text(`${pageIdx + 1} / ${pageGroups.length}`, pageW - marginX, pageH - marginY - footerH + 5, { align: 'right' });
+    });
+
+    pdf.save(`${projectTitle}.pdf`);
+  } catch (err) {
+    console.error(err);
+    alert('PDF 내보내기 중 오류가 발생했습니다.');
+  } finally {
+    loading.classList.remove('show');
+  }
+}
+
+// ─── RESIZE OBSERVER ──────────────────────
+window.addEventListener('resize', () => {
+  frames.forEach(f => resizeCanvas(f.id));
+});
+
+// ─── START ────────────────────────────────
+init();
+</script>
+</body>
+</html>
