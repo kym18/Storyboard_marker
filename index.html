@@ -302,6 +302,10 @@
   }
   .frame-card:hover { border-color: #3a3a4a; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
   .frame-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(232,255,71,0.2); }
+  .frame-card[draggable="true"] { cursor: grab; }
+  .frame-card[draggable="true"]:active { cursor: grabbing; }
+  .frame-card.dragging { opacity: 0.35; }
+  .frame-card.drag-over { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,255,71,0.45); transform: scale(1.01); }
 
   .frame-number {
     position: absolute;
@@ -703,6 +707,53 @@ function init() {
   addFrame();
 }
 
+// ─── DRAG & DROP REORDER ──────────────────
+let dragStartId = null;
+
+function initDrag(card, id) {
+  card.addEventListener('dragstart', e => {
+    if (['INPUT', 'TEXTAREA', 'BUTTON'].includes(e.target.tagName)) { e.preventDefault(); return; }
+    dragStartId = id;
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => card.classList.add('dragging'), 0);
+  });
+
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    document.querySelectorAll('.frame-card').forEach(c => c.classList.remove('drag-over'));
+    dragStartId = null;
+  });
+
+  card.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (dragStartId !== null && id !== dragStartId) {
+      document.querySelectorAll('.frame-card').forEach(c => c.classList.remove('drag-over'));
+      card.classList.add('drag-over');
+    }
+  });
+
+  card.addEventListener('dragleave', e => {
+    if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over');
+  });
+
+  card.addEventListener('drop', e => {
+    e.preventDefault();
+    card.classList.remove('drag-over');
+    if (dragStartId === null || dragStartId === id) return;
+    const fromIdx = frames.findIndex(f => f.id === dragStartId);
+    const toIdx   = frames.findIndex(f => f.id === id);
+    if (fromIdx === -1 || toIdx === -1) return;
+    [frames[fromIdx], frames[toIdx]] = [frames[toIdx], frames[fromIdx]];
+    reRenderGrid();
+  });
+}
+
+function reRenderGrid() {
+  document.getElementById('framesGrid').innerHTML = '';
+  frames.forEach((frame, idx) => renderFrame(frame.id, idx + 1));
+  updateFieldVisibility();
+}
+
 // ─── LAYOUT / RATIO ───────────────────────
 function setLayout(layout, btn) {
   currentLayout = layout;
@@ -731,16 +782,19 @@ function addFrame() {
   renderFrame(id);
 }
 
-function renderFrame(id) {
+function renderFrame(id, displayNum) {
   const grid = document.getElementById('framesGrid');
   const frame = frames.find(f => f.id === id);
   if (!frame) return;
+  if (displayNum === undefined) displayNum = frames.findIndex(f => f.id === id) + 1;
 
   const card = document.createElement('div');
   card.className = 'frame-card';
   card.id = `frame-${id}`;
+  card.setAttribute('draggable', 'true');
+  initDrag(card, id);
   card.innerHTML = `
-    <div class="frame-number">FRAME ${id}</div>
+    <div class="frame-number">FRAME ${displayNum}</div>
     <button class="frame-delete" onclick="deleteFrame(${id})" title="프레임 삭제">×</button>
     <div class="frame-canvas-wrapper ratio-${currentRatio}" id="wrapper-${id}">
       <canvas id="canvas-${id}"></canvas>
@@ -781,9 +835,25 @@ function renderFrame(id) {
   grid.appendChild(card);
   updateFieldVisibility();
 
-  // Init canvas after DOM is ready
+  // Init canvas after DOM is ready, then restore image if exists
   setTimeout(() => {
     initCanvas(id);
+    if (frame.imgSrc) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.getElementById(`canvas-${id}`);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1a1a20';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+        const ph = document.querySelector(`#wrapper-${id} .frame-canvas-placeholder`);
+        if (ph) ph.style.display = 'none';
+      };
+      img.src = frame.imgSrc;
+    }
   }, 50);
 }
 
@@ -1009,12 +1079,6 @@ async function exportPDF() {
             imgBox.appendChild(img);
           }
 
-          // 프레임 번호 뱃지
-          const badge = document.createElement('div');
-          badge.style.cssText = `position:absolute;top:6px;left:8px;background:rgba(0,0,0,0.6);
-            color:#fff;font-size:9px;font-family:monospace;padding:2px 6px;border-radius:2px;`;
-          badge.textContent = `F${frame.id}`;
-          imgBox.appendChild(badge);
           card.appendChild(imgBox);
 
           // 필드 영역
