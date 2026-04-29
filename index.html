@@ -51,13 +51,22 @@
     top: 0; left: 0; right: 0;
     z-index: 100;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
     padding: 0 28px;
-    height: 58px;
     background: rgba(15,15,17,0.92);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
+  }
+  .header-row1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 58px;
+  }
+  .header-row2 {
+    display: flex;
+    align-items: center;
+    padding-bottom: 10px;
   }
 
   .logo {
@@ -127,10 +136,32 @@
   .btn-danger:hover { background: #ff4444; color: #fff; }
 
   /* ── LAYOUT ── */
+  .summary-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    padding: 2px 8px;
+    width: 100%;
+    max-width: 700px;
+    outline: none;
+    resize: none;
+    line-height: 1.5;
+    min-height: 22px;
+    max-height: 60px;
+    overflow-y: auto;
+    transition: border-color 0.2s;
+    color: #aaa;
+  }
+  .summary-input::placeholder { color: #555; }
+  .summary-input:focus { border-color: var(--accent); color: var(--text); }
+
   .app-container {
     display: flex;
-    margin-top: 58px;
-    height: calc(100vh - 58px);
+    margin-top: 100px;
+    height: calc(100vh - 100px);
   }
 
   /* ── SIDEBAR ── */
@@ -256,7 +287,7 @@
   }
 
   /* Frame layouts */
-  .layout-1col { grid-template-columns: 1fr; max-width: 780px; margin: 0 auto; }
+  .layout-4col { grid-template-columns: repeat(4, 1fr); }
   .layout-2col { grid-template-columns: 1fr 1fr; max-width: 900px; margin: 0 auto; }
   .layout-3col { grid-template-columns: 1fr 1fr 1fr; max-width: 1100px; margin: 0 auto; }
 
@@ -401,7 +432,8 @@
   .field-input:focus { border-color: var(--accent); background: #1e1e24; }
   .field-input::placeholder { color: #444; }
 
-  textarea.field-input { min-height: 56px; }
+  textarea.field-input { height: 52px; min-height: 52px; resize: none; overflow-y: auto; }
+  input.field-input    { height: 52px; box-sizing: border-box; }
 
   
 
@@ -561,17 +593,23 @@
 
 <!-- Header -->
 <header>
-  <div class="logo">
-    <div class="logo-dot"></div>
-    STORYBOARD MAKER
+  <div class="header-row1">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      STORYBOARD MAKER
+    </div>
+    <input class="project-title-input" id="projectTitle" placeholder="프로젝트 제목 입력..." value="무제 스토리보드">
+    <div class="header-actions">
+      <button class="btn btn-ghost" onclick="clearAll()">초기화</button>
+      <button class="btn btn-accent" onclick="exportPDF()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        PDF 내보내기
+      </button>
+    </div>
   </div>
-  <input class="project-title-input" id="projectTitle" placeholder="프로젝트 제목 입력..." value="무제 스토리보드">
-  <div class="header-actions">
-    <button class="btn btn-ghost" onclick="clearAll()">초기화</button>
-    <button class="btn btn-accent" onclick="exportPDF()">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      PDF 내보내기
-    </button>
+  <div class="header-row2">
+    <textarea class="summary-input" id="projectSummary" placeholder="콘텐츠 요약 (선택사항) — PDF 헤더에 포함됩니다" rows="1"
+      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,60)+'px'"></textarea>
   </div>
 </header>
 
@@ -584,16 +622,17 @@
     <div class="sidebar-section">
       <div class="sidebar-label">레이아웃</div>
       <div class="template-options">
-        <button class="template-btn active" onclick="setLayout('1col',this)">
-          <div class="template-icon">▬</div> 1열 (세로)
-        </button>
-        <button class="template-btn" onclick="setLayout('2col',this)">
+        <button class="template-btn active" onclick="setLayout('2col',this)">
           <div class="template-icon" style="display:grid;grid-template-columns:1fr 1fr;gap:2px"><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span></div>
           2열 그리드
         </button>
         <button class="template-btn" onclick="setLayout('3col',this)">
           <div class="template-icon" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px"><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span></div>
           3열 그리드
+        </button>
+        <button class="template-btn" onclick="setLayout('4col',this)">
+          <div class="template-icon" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px"><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span><span style="background:currentColor;opacity:0.3;border-radius:1px"></span></div>
+          4열 그리드
         </button>
       </div>
     </div>
@@ -640,7 +679,7 @@
   <main class="main" id="mainArea">
 
     <!-- Frames grid -->
-    <div class="frames-grid layout-1col" id="framesGrid"></div>
+    <div class="frames-grid layout-2col" id="framesGrid"></div>
 
   </main>
 </div>
@@ -652,12 +691,13 @@
 // ─── STATE ───────────────────────────────
 let frames = [];
 let nextId = 1;
-let currentLayout = '1col';
+let currentLayout = '2col';
 let currentRatio = '16-9';
 let histories = {};
 
 // ─── INIT ─────────────────────────────────
 function init() {
+  addFrame();
   addFrame();
   addFrame();
   addFrame();
@@ -847,13 +887,16 @@ async function exportPDF() {
   try {
     const { jsPDF } = window.jspdf;
     const projectTitle = document.getElementById('projectTitle').value || '스토리보드';
+    const projectSummary = document.getElementById('projectSummary').value.trim();
     const today = new Date().toLocaleDateString('ko-KR');
-    const colCount = currentLayout === '3col' ? 3 : currentLayout === '2col' ? 2 : 1;
+    const colCount = currentLayout === '4col' ? 4 : currentLayout === '3col' ? 3 : currentLayout === '2col' ? 2 : 1;
 
     // A4 기준 (px @ 96dpi): 794 x 1123
     const A4W = 1587, A4H = 1122; // A3 landscape (420x297mm @96dpi ~)
     const marginX = 40, marginY = 40;
-    const headerH = 52, footerH = 32;
+    const summaryLines = projectSummary ? projectSummary.split('\n').length : 0;
+    const headerH = 52 + (summaryLines > 0 ? summaryLines * 18 + 8 : 0);
+    const footerH = 0;
     const gridW = A4W - marginX * 2;
     const colW = (gridW - (colCount - 1) * 16) / colCount;
 
@@ -870,22 +913,42 @@ async function exportPDF() {
       duration: document.getElementById('showDuration').checked,
     };
 
-    // 필드 몇 줄인지 계산해서 fieldH 동적 결정
-    const activeFields = [show.scene, show.desc, show.dialog, show.camera, show.duration].filter(Boolean).length;
-    const fieldH = Math.max(60, activeFields * 22 + 16);
-    const frameH = imgH + fieldH;
-    const rowH = frameH + 16;
+    // 프레임별 실제 콘텐츠 높이 추정 (줄바꿈 반영)
+    const ROW_LINE_H = 18;  // 11px * 1.6 line-height
+    const ROW_PAD_V  = 10;  // padding 5px top + 5px bottom
+    const ROW_MIN_H  = 24;
+    const countLines = (txt) => txt ? txt.split('\n').length : 1;
 
-    // 페이지당 행 수
+    const estimateFieldH = (frame) => {
+      let total = 0;
+      if (show.scene)    total += Math.max(ROW_MIN_H, countLines(frame.scene)    * ROW_LINE_H + ROW_PAD_V);
+      if (show.desc)     total += Math.max(ROW_MIN_H, countLines(frame.desc)     * ROW_LINE_H + ROW_PAD_V);
+      if (show.dialog)   total += Math.max(ROW_MIN_H, countLines(frame.dialog)   * ROW_LINE_H + ROW_PAD_V);
+      if (show.camera)   total += Math.max(ROW_MIN_H, countLines(frame.camera)   * ROW_LINE_H + ROW_PAD_V);
+      if (show.duration) total += Math.max(ROW_MIN_H, countLines(frame.duration) * ROW_LINE_H + ROW_PAD_V);
+      return Math.max(60, total);
+    };
+
+    // 행으로 분리 후 실제 높이 기반으로 페이지 동적 배분
     const bodyH = A4H - marginY - headerH - footerH - marginY;
-    const rowsPerPage = Math.max(1, Math.floor(bodyH / rowH));
-
-    // 행으로 분리
     const rows = [];
     for (let i = 0; i < frames.length; i += colCount) rows.push(frames.slice(i, i + colCount));
 
     const pageGroups = [];
-    for (let i = 0; i < rows.length; i += rowsPerPage) pageGroups.push(rows.slice(i, i + rowsPerPage));
+    let curPage = [], curH = 0;
+    for (const row of rows) {
+      const rowFrameH = Math.max(...row.map(f => imgH + estimateFieldH(f)));
+      const rowH = rowFrameH + 16;
+      if (curPage.length > 0 && curH + rowH > bodyH) {
+        pageGroups.push(curPage);
+        curPage = [row];
+        curH = rowH;
+      } else {
+        curPage.push(row);
+        curH += rowH;
+      }
+    }
+    if (curPage.length > 0) pageGroups.push(curPage);
 
     // canvas 드로잉 데이터 수집
     const canvasDataURLs = {};
@@ -912,20 +975,19 @@ async function exportPDF() {
         padding:${marginY}px ${marginX}px;
       `;
 
-      // 헤더
+      // 헤더 (1페이지만 제목·요약 표시)
+      const headerHTML = pageIdx === 0
+        ? `<div style="padding-bottom:12px;margin-bottom:20px;border-bottom:2px solid #111;">
+             <div style="display:flex;justify-content:space-between;align-items:baseline;">
+               <div style="font-size:20px;font-weight:700;letter-spacing:-0.01em;">${projectTitle}</div>
+               <div style="font-size:11px;color:#888;">${today}</div>
+             </div>
+             ${projectSummary ? `<div style="font-size:11px;color:#555;margin-top:6px;line-height:1.6;white-space:pre-wrap;">${projectSummary}</div>` : ''}
+           </div>`
+        : '';
       pageDiv.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;
-                    padding-bottom:12px;margin-bottom:20px;border-bottom:2px solid #111;">
-          <div style="font-size:20px;font-weight:700;letter-spacing:-0.01em;">${projectTitle}</div>
-          <div style="font-size:11px;color:#888;">${today} · ${pageIdx+1} / ${pageGroups.length}</div>
-        </div>
+        ${headerHTML}
         <div style="display:grid;grid-template-columns:repeat(${colCount},1fr);gap:16px;" id="pg-grid"></div>
-        <div style="position:absolute;bottom:${marginY}px;left:${marginX}px;right:${marginX}px;
-                    border-top:1px solid #eee;padding-top:8px;
-                    display:flex;justify-content:space-between;font-size:10px;color:#bbb;">
-          <span>Storyboard Maker</span>
-          <span>Page ${pageIdx+1} of ${pageGroups.length}</span>
-        </div>
       `;
       document.body.appendChild(pageDiv);
       const grid = pageDiv.querySelector('#pg-grid');
@@ -957,14 +1019,14 @@ async function exportPDF() {
 
           // 필드 영역
           const fields = document.createElement('div');
-          fields.style.cssText = `padding:10px 12px;border-top:1px solid #ddd;display:flex;flex-direction:column;gap:5px;`;
+          fields.style.cssText = `border-top:1.5px solid #222;display:flex;flex-direction:column;`;
 
           const addRow = (label, val) => {
-            if (!val) return;
             const row = document.createElement('div');
-            row.style.cssText = `display:flex;gap:6px;font-size:11px;line-height:1.5;`;
-            row.innerHTML = `<span style="font-weight:700;color:#555;min-width:40px;flex-shrink:0;">${label}</span>
-                             <span style="color:#111;word-break:break-all;">${val}</span>`;
+            row.style.cssText = `display:flex;font-size:11px;line-height:1.6;border-bottom:1px solid #ddd;min-height:24px;`;
+            row.innerHTML = `<span style="font-weight:700;color:#444;min-width:44px;max-width:44px;flex-shrink:0;
+                               padding:5px 6px;border-right:1px solid #ddd;background:#f7f7f7;">${label}</span>
+                             <span style="color:#111;word-break:break-word;white-space:pre-wrap;padding:5px 8px;flex:1;">${val || ''}</span>`;
             fields.appendChild(row);
           };
 
